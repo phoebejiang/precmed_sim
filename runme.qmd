@@ -1,0 +1,280 @@
+---
+title: Example code of the simulations conducted in Jiang et al. 2024
+author: Phoebe Jiang (phoebe.jiang@biogen.com)
+date: today
+bibliography: references.bib
+format:
+  html:
+    toc: true
+execute:
+  echo: false
+  eval: true
+  message: false
+output-dir: "C:/Users/xjiang1/OneDrive - Biogen/Documents/Innovation/PMMS/precmed_sim/outputs/runme_outputs.html"
+---
+
+# Manuscript 
+**Impact of treatment effect heterogeneity on the estimation of individualized treatment rules (Authors: Xiaotong Jiang, Gabrielle Simoneau, Bora Youn, Fabio Pellegrini, Carl de Moor, Thomas Debray, Changyu Shen)**
+
+* **Background:** There's growing interest in tailoring treatment decisions to individual patient characteristics, but few studies have examined the implementation and performance of individualized treatment rules (ITRs) for count data. 
+ 
+* **Objective:** To compare ITR methods in randomized trials with count outcomes and explore the impact of sample size, magnitude, and distribution of heterogeneity of treatment effect (HTE) on the validity of treatment recommendations. 
+ 
+* **Methods:** We conducted a simulation study where patients with five covariates were randomized to receive one of two treatments. Four ITR methods were evaluated in terms of value function and accuracy. We also conducted a case study involving patients with multiple sclerosis. 
+ 
+* **Results:** All ITR methods performed better with larger sample size, substantial HTE, or fewer patients with equivalent treatments. Conversely, ITRs was inferior to fixed treatment strategies with small sample sizes or limited HTE. However, larger sample sizes can compensate for smaller HTEs and high HTEs can compensate for limited data. In the case study, we identified HTE and developed a tree-based ITR that outperformed fixed treatment recommendations.  
+ 
+* **Conclusion:** The performance of a precision medicine approach can be influenced by sample size and the magnitude and distribution of HTE, as well as the interactions between them. 
+
+
+
+```{r setup, eval = T, echo = F}
+remove(list = ls())
+
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(magrittr))
+suppressPackageStartupMessages(library(haven))
+# suppressPackageStartupMessages(library(Hmisc))
+suppressPackageStartupMessages(library(MASS))
+suppressPackageStartupMessages(library(pscl))
+suppressPackageStartupMessages(library(caret))
+suppressPackageStartupMessages(library(glmnet))
+suppressPackageStartupMessages(library(mpath))
+suppressPackageStartupMessages(library(gbm))
+suppressPackageStartupMessages(library(fastDummies))
+suppressPackageStartupMessages(library(listdtr))
+suppressPackageStartupMessages(library(DTRreg))
+
+# CHANGE THIS #
+main_path <- "C:/Users/xjiang1/OneDrive - Biogen/Documents/Innovation/PMMS/precmed_sim/"
+
+setwd(main_path) 
+source("utility.R")
+source("eachCV.R")
+source("01-setup.R")
+source("02-propensityscore.R")
+source("03-dWOLS.R")
+source("04-regression-based.R")
+source("05-listdtr.R")
+source("06-LuScore.R")
+source("simmain.R")
+source("simsummary.R")
+source("simsummary_alln.R")
+source("simplot.R")
+```
+
+# How to run the simulations described in the paper yourself?
+```{r startsim, eval = T, echo = F}
+# # User-specified constants
+# args <- commandArgs(trailingOnly = TRUE)
+# method <- args[1]               # PM method, an argument from command line
+# yvar <- args[2]                 # y-variable specified by user, could be logarr0001 = log(arr+0.001) or logarr1 = log(arr+1) or log((NRL+0.01)/offsetbyyear)
+# batch <- as.numeric(args[3])    # the batch index, could be from 1 to n.cv/batch_size, an argument from command line
+# n <- as.numeric(args[4])        # sample size of the randomly generated simulated data
+# beta <- eval(parse(text = args[5]))  # level of heterogeneity 
+# percentiles <- eval(parse(text = args[6])) # percentiles of subgroups
+
+display_methods <- c("Contrast\n Regression", "All A0", "All A1",
+                     "Two\n Regressions", "Boosting", "List DTR\n (2 nodes)",
+                     "dWOLS", "Poisson", "Linear", "Negative\n Binomial")
+# methods <- c("allA1", "allA0", "linear", "poisson", "dWOLS", "listDTR2", "boosting",
+             # "twoReg", "contrastReg")
+methods <- c("allA1", "allA0", "linear", "poisson")
+ns <- c(500, 1000, 2500) # c(500, 1000, 2500, 5000, 10000)
+
+# method <- "allA1"
+n <- 500
+magnitude <- "no"
+distribution <- "symm 20x5"
+n.cv = 10 # Total number of CV iterations
+batch_size = 5 # Number of CV iterations in each batch 
+n.batch = n.cv / batch_size # Number of batches (assume it is an integer)
+```
+
+Below are the options that you can select and try:
+
+* Methods: 
+  * `method` $\in$ $\{$`allA1`, `allA0`, `linear`, `poisson`, `dWOLS`, `listDTR2`, `boosting`, `twoReg`, `contrastReg`$\}$ 
+
+  * Packages used: `dWOLS` [DTRreg](https://cran.r-project.org/web/packages/DTRreg/index.html), `listDTR` [listdtr](https://CRAN.R-project.org/package=listdtr), `boosting` [gbm](https://cran.r-project.org/web/packages/gbm/index.html), `twoReg` and `contrastReg` [precmed](https://smartdata-analysis-and-statistics.github.io/precmed/index.html) 
+
+* Sample size: 
+
+  * `n` $\in$ $\{$`500`, `1000`, `2500`, `5000`, `10000`$\}$ (can select multiple)
+
+* Magnitude of HTE: 
+
+  * `magnitude` $\in$ $\{$`no`, `low`, `medium`, `high`$\}$
+
+* Distribution of HTE: 
+
+  * `distribution` $\in$ $\{$`symm 20x5`, `symm 10-15-50-15-10`, `symm 10-30-20-30-10`, `asymm 55-30-15`, `asymm 55-15-15-15` $\}$
+
+There are other constants that you can change as well but not necessary:
+
+* `n.cv` - number of CV iterations
+
+* `batch_size`- number of CV iterations in each batch (number of batches = `n.cv` / `batch_size`)
+
+* `n.fold` - number of CV folds
+
+Note that it is recommended to use parallel programming or high performance clusters to run sample sizes higher than 2500 and/or more complex methods such as `boosting`, `listDTR2`, `twoReg`, and `contrastReg` due to long running time. The purpose of running CV iterations in batches is to allow parallelization. 
+
+## An Example 
+Through a simplified example, we demonstrate 
+
+1. how to conduct the simulations with three sample sizes in batches (function `simmain()`), and
+
+2. summarize the results to a dataset (function `simsummarize()`), which will then be visualized.
+
+This example is based on `r n.cv` CV iterations of the magnitude `r magnitude` HTE with subgroup distribution `r distribution`, split in `r n.batch` batches of size `batch_size` if parallelization can be used. The chosen sample sizes are `r ns` and the methods used here are `r methods`.
+
+```{r example, message = F, echo = T, eval = F}
+# Go through each sample size, batch, and method
+for(n in ns){
+  for(ind in 1:n.batch){
+    for (method in methods){
+      cat("##############################")
+      cat("####n", n, ", method", method, "##########")
+      cat("##############################")
+      simmain(main_path = main_path, method = method, n = n,
+              magnitude = magnitude, distribution = distribution,
+              batch_ind = ind, n.cv = n.cv, batch_size = batch_size)
+    }
+  }
+  simsummarize(main_path, n, magnitude, distribution, n.cv = n.cv, batch_size = batch_size)
+}
+simsummarize_alln(main_path, ns, magnitude, distribution)
+```
+
+## Result visualization
+We follow the visualization strategies in this decision flowchart [@cebook]. First, we evaluate the accuracy and agreement of the ITR itself, following the left branch. Next, we follow the right branch and look at how the ITR performs in terms of patient well-being by taking into account the expected patient outcome under the ITRs estimated by selected PM methods.
+
+![A decision flowchart summarizing what precision medicine results to present](flowchart.png){width=4in}
+
+### The estimated ITR 
+Accuracy is a metric that quantifies how many estimated ITRs are the same as the true optimal ITRs. We only know the true optimal ITRs in simulated data where the true decision boundary is known. In this situation of no HTE, every patient's optimal treatment is A1 so All A1 method is 100% accurate by definition. For the two PM methods, larger sample size increases the accuracy from 65% to 80% as sample size goes from 500 to 2500. 
+```{r results1, fig.width = 5}
+# Read the pre-loaded results
+load(paste0(main_path, "outputs/simsummary_sample_size_dataplot_no_symm 20x5.RData"))
+
+p1 <- plotAcc(data = `dat.accuracy.summary_no_symm 20x5`, 
+        display_methods = display_methods,
+        figure_folder = paste0(main_path, "outputs/"),
+        outname = "accuracy_prop1.png", output = T) 
+p1
+```
+
+Agreement is a metric that quantifies how two estimated ITRs agree with each other. This plot is useful if we don't know the true optimal ITR. It looks like Poisson and linear methods have 85% agreement, where Poisson recommended A1 to 82% of the patients and linear recommended A1 to 78% of the patients. By definition, All A0 and All A1 should have 0 agreement. 
+```{r results2, fig.width = 7, results='hide',fig.keep='all'}
+p2 <- plotAgree(data = `dhat.agreement_no_symm 20x5`$n2500,
+          display_methods = display_methods,
+          figure_folder = paste0(main_path, "outputs/"),
+          outname = "agreement_n2500_prop1.png", output = T)
+```
+
+### The ITR in the context of outcome
+To evaluate the ITR in the context of outcome, the value functions (function `plotV()`) of the estimated ITRs are calculated and summarized separately in line plots. Four methods are used here for the scenario where no HTE exists. Recall that value function is a metric to quantify how "good" the ITRs are. Lower value functions are more desirable because our outcome of interest is number of relapses (a negative event). Here are some main takeaways:
+
+* All A0 and All A1 are fixed rules so the value functions do not change as sample size increases.  
+* Poisson and linear regression methods have similar performance in terms of value function.
+* The PM methods can learn better and recommend better treatment rules as sample size increases.
+
+```{r results3, fig.width = 7}
+p3 <- plotV(data = `all.cvs3_no_symm 20x5`, thisV = "V", 
+      display_methods = display_methods,
+      figure_folder = paste0(main_path, "outputs/"),
+      outname = "value_prop1.png", output = T)
+p3
+```
+
+The value function results shown above are true value functions due to the benefit of simulated data. In real practice, we also need to estimate the value function when the true decision boundary is unknown. The visualization below shows the difference between $V(\hat{d})$ and $\hat{V}(\hat{d})$. It is expected that two layers of estimation creates a bigger uncertainty as the lengths of the error bars indicate. Larger sample size helps reduce the variance. 
+
+```{r results4, fig.width = 7}
+p4 <- plotVvsVhat(data = `all.cvs3_no_symm 20x5`,
+            display_methods = display_methods,
+            figure_folder = paste0(main_path, "outputs/"),
+            outname = "v_vs_vhat_prop1.png", output = T) 
+p4
+```
+
+# How to apply the PM methods to your own data?
+
+This section is for those who are interested in giving it a try to your dataset. We will demonstrate with a simple example how to fit the model, calculate the estimates, and validate via a separate dataset.
+
+Let us try a small example of 500 samples with medium-level HTE and asymmetric responder group profile (i.e., 55% high responders to A1, 30% moderatre responders to A1, 15% neutral). Here, we are using the doubly robust Contrast Regression method ([@yadlowsky2021estimation], [@precmed2023]).
+```{r policy, echo = T, output = F}
+# Specify sample size, magnitude and distribution of HTE
+n <- 500
+params <- convertParameters("medium", "asymm 55-30-15", verbose = T)
+
+# Specify X and Y variables to be included in the model
+categoricalvars <- c("female", "prevDMTefficacy")
+formatted_categoricalvars <- c("female", "prevDMTefficacy_Medium.and.high.efficacy", "prevDMTefficacy_None")
+continuousvars <- c("ageatindex_centered", "prerelapse_num", "premedicalcost")
+yvar <- "postrelapse_num"
+
+# Simulate random datasets
+traindata <- simdata(n = n, RCT = RCT, beta = params$beta, 
+                     percentiles = params$percentiles, seed = 2023)$data 
+testdata <- simdata(n = n, RCT = RCT, beta = params$beta, 
+                    percentiles = params$percentiles, seed = 2024)$data
+# bigdata <- simdata(n = 10000, RCT = RCT, beta = params$beta, percentiles = params$percentiles, seed = 999)$data
+
+# Format the training and testing data
+temp <- format.countdata(data = traindata, 
+                         yvar = yvar, 
+                         timevar = "finalpostdayscount", 
+                         trtvar = "trt", 
+                         xcontinuousvars = c(continuousvars, "FUweight"), 
+                         xcategoricalvars = categoricalvars, 
+                         RCT = T, imputation.method = NULL)
+traindata <- data.frame(y = temp$y, trt = factor(temp$trt), time = log(temp$time), temp$x)
+traindata$trt <- as.numeric(traindata$trt == 1)
+
+temp <- format.countdata(data = testdata, 
+                         yvar = yvar, 
+                         timevar = "finalpostdayscount", 
+                         trtvar = "trt", 
+                         xcontinuousvars = c(continuousvars, "FUweight"), 
+                         xcategoricalvars = categoricalvars, 
+                         RCT = T, imputation.method = NULL)
+testdata <- data.frame(y = temp$y, trt = factor(temp$trt), time = log(temp$time), temp$x)
+testdata$trt <- as.numeric(testdata$trt == 1)
+
+# Calculate PS/IPTW (assuming randomized trials)
+trainps <- mean(traindata$trt)
+traindata <- traindata %>% mutate(ps = trainps, iptw = ifelse(trt == 1, 1/ps, 1/(1 - ps)))
+testdata <- testdata %>% mutate(ps = trainps, iptw = ifelse(trt == 1, 1/ps, 1/(1 - ps)))
+
+# Implement the contrast Regression method    
+results <- itrLuDR(traindata = traindata,
+                    testdata = testdata,
+                    categoricalvars = formatted_categoricalvars,
+                    continuousvars = continuousvars,
+                    RCT = T,
+                    tree.depth = 2,
+                    n.trees = 100,
+                    Kfold = 5,
+                    B = 3,
+                    seed.cf = 3,
+                    plot.gbmperf = F,
+                    sim.big = NULL)
+```
+
+The results of each PM method are saved as a list with name `results` and it contains two kinds of outputs:
+
+* `dhat`: the estimated ITR (where 0 means recommending A0 and 1 means recommending A1) for each subject; a vector of 0/1 values with size $n$ 
+* `vhat.dhat`: numerator (`U`) and denominator (`W`) component of the value function estimate as well as intermediate components of the variance estimator (sumRj2 and `sumRj2.mean`); a list of 4 elements 
+
+Below are the results from the contrast regression method:
+```{r outs, eval = T, echo = T}
+table(results$valueContrastReg$dhat)
+results$valueContrastReg$vhat.dhat
+```
+The estimated value function is `results$valueContrastReg$vhat.dhat$U / results$valueContrastReg$vhat.dhat$W` = `r round(results$valueContrastReg$vhat.dhat$U / results$valueContrastReg$vhat.dhat$W, 2)`.
+
+For demonstration purpose, the model was not trained for very long. More optimal results might be generated with a longer training period, which has a trade-off between computation burden and model performance. 
+
+
+# References
