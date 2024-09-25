@@ -10,7 +10,7 @@ execute:
   echo: false
   eval: true
   message: false
-output-dir: "C:/Users/xjiang1/OneDrive - Biogen/Documents/Innovation/PMMS/precmed_sim/outputs/runme_outputs.html"
+output-dir: "./runme_outputs.html"
 ---
 
 # Manuscript 
@@ -46,7 +46,7 @@ suppressPackageStartupMessages(library(listdtr))
 suppressPackageStartupMessages(library(DTRreg))
 
 # CHANGE THIS #
-main_path <- "C:/Users/xjiang1/OneDrive - Biogen/Documents/Innovation/PMMS/precmed_sim/"
+main_path <- "./precmed_sim/"
 
 setwd(main_path) 
 source("utility.R")
