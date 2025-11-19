@@ -39,7 +39,7 @@ suppressPackageStartupMessages(library(magrittr))
 suppressPackageStartupMessages(library(stringr))
 suppressPackageStartupMessages(library(ggrepel))
 
-setwd("C:/Users/xjiang1/OneDrive - Biogen/Documents/Innovation/PMMS/precmed_sim/") # CHANGE THIS #
+setwd("./precmed_sim/") # CHANGE THIS #
 source("utility.R")
 
 # Define the summary function

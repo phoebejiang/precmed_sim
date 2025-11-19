@@ -53,7 +53,7 @@ suppressPackageStartupMessages(library(caret))
 suppressPackageStartupMessages(library(RColorBrewer))
 suppressPackageStartupMessages(library(ggnewscale))
 
-setwd("C:/Users/xjiang1/OneDrive - Biogen/Documents/Innovation/PMMS/precmed_sim/") # CHANGE THIS #
+setwd("./precmed_sim/") # CHANGE THIS #
 source("01-setup.R")
 source("utility.R")
 
