@@ -1,0 +1,16 @@
+#!/bin/bash -l
+ 
+#SBATCH --job-name=summN
+#SBATCH --nodes=1
+#SBATCH --time=4:00:00
+#SBATCH --partition cpu
+#SBATCH --cpus-per-task=1
+#SBATCH -o ./simulations/samplesize/code/slurmoutputs/slurm-simsummary_sample_size_beta_perc.out
+
+# Execute the job
+echo $1 $2
+time Rscript simsummary_sample_size.R $1 $2
+  # $1 = beta (level of heterogeneity)
+  # $2 = perc (responder subgroup percentiles)
+
+exit 0

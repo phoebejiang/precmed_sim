@@ -1,41 +1,20 @@
 # ------------------------------------------------------------------
-# Product: Tecfidera [A1] vs. Teriflunomid [A0]
-# Protocol: MarketScan
 # Project: Precision Medicine MS
 # 
 # Program name: 05_listdtr.R
-# Date: 06NOV2020
-# 
+#
 # Purpose: Estimate treatment rule with list-based DTR
-# 
-# Platform: Windows
-# R Version: 4.0.3
-# 
-#   Modifications:
-# 
-#   Date			By			Description
-# --------		--------	-----------------------------
-#   06NOV2020 pj      Start the script 
-#   11NOV2020 pj      Investigate the results from the HPC (slow on all data)
-#   16NOV2020 pj      Wrap method in a function
-#   07DEC2020 gs      Update functions when test data != NULL
-#   26APR2021 pj      Change outputs to single Vhat(dhat) to four items: d.hat test fold, Vhat(dhat), d.hat large test, V(dhat)
 # ------------------------------------------------------------------
 
-#remove(list = ls())
-#library(tidyverse)
-#library(magrittr)
-#library(listdtr)
-#library(fastDummies)
+library(tidyverse)
+library(magrittr)
+library(listdtr)
 
-#setwd("/home/pjiang/PMMS/MarketScan/code/")
-#setwd("C:/Users/xjiang1/OneDrive - Biogen/Documents/Innovation/Code/PMMS/TruvenMarketScan/")
-#source("./01-preprocessing.R")
-#source("./02-propensityscore.R")
-
+source("./utility.R")
 
 itrLIST <- function(traindata, testdata, outcome, treatment, categoricalvars, continuousvars,
         maxlen = 2L, seed = seed + fold.i, sim.big = NULL){
+  
   #' ITR with list-based DTR 
   #' Listdtr assumes higher outcome is better but our outcome is assumed to be better if lower
   #' 
@@ -88,10 +67,7 @@ itrLIST <- function(traindata, testdata, outcome, treatment, categoricalvars, co
   
   # If large independent data are provided
   if (!is.null(sim.big)){
-    temp.big <- format.countdata(data = sim.big$data, 
-                                 yvar = "postrelapse_num", 
-                                 timevar = "finalpostdayscount", 
-                                 trtvar = "trt", 
+    temp.big <- format.countdata(data = sim.big$data, yvar = "mlogarr0001", timevar = "finalpostdayscount", trtvar = "trt", 
                                  xcontinuousvars = c("ageatindex_centered", "prerelapse_num", "premedicalcost", "postrelapse_num", "offset", "FUweight"), 
                                  xcategoricalvars = c("female", "prevDMTefficacy"), imputation.method = NULL)
     testdata.big <- data.frame(y = temp.big$y, trt = temp.big$trt, time = log(temp.big$time), temp.big$x)

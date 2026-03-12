@@ -1,0 +1,16 @@
+#!/bin/bash -l
+
+#SBATCH --job-name=batchmethod
+#SBATCH --nodes=1
+#SBATCH --time=02-00:00:00
+#SBATCH --partition cpu
+#SBATCH --cpus-per-task=1
+#SBATCH -o ./slurmoutputs/slurm-main_10folds_method_batch.out
+
+# Execute the job
+echo $1 $2 
+time Rscript main.R $1 $2 
+  # $1 = method
+  # $2 = batch index
+
+exit 0

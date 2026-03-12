@@ -1,35 +1,15 @@
 # ------------------------------------------------------------------
-# Product: Tecfidera [A1] vs. Teriflunomid [A0]
-# Protocol: MarketScan
 # Project: Precision Medicine MS
 # 
-# Program name: 06_LuScore.R
-# Date: 16NOV2020
-# 
-# Purpose: Estimate treatment rule with 4 methods in Yadlowsky (2020)
-#    
-# 
-# Platform: Windows
-# R Version: 4.0.1
-# 
-#   Modifications:
-# 
-#   Date			By			Description
-# --------		--------	-----------------------------
-#   16NOV2020 gs      Start the script
-#   03DEC2020 gs      Update functions when test data==NULL
-#   07DEC2020 gs      Add more outputs with testdata==NULL
-#   11MAR2021 gs      Update DR function to accommodate RCT data and trt factor or numeric
-#                     Add -time in boosting
-#   15MAR2021 pj      Move factor->numeric trt change to eachCV.R
-#   26APR2021 pj      Change outputs to single Vhat(dhat) to four items: d.hat test fold, Vhat(dhat), d.hat large test, V(dhat)
-#   14MAY2021 pj      Set itr.big as numeric instead of factor bc model.matrix can't handle factors with < 2 levels
+# Program name: 06-LuScore.R
+#
+# Purpose: Estimate treatment rule with 4 methods in Yadlowsky 2020 
+#          (Poisson, Boosting, Two Regressions, Contrast Regression)
 # ------------------------------------------------------------------
 
-#library(gbm)
+library(gbm)
+library(tidyverse)
 
-#### Lu's basic functions to be used in the ITR functions below
-####  see file R package "PRECMED", CATE.R script for details
 twoarmglmcount.dr <- function(y, x, time, trt, ps, f1.predictor, f0.predictor, error.control = 1e-3, max.iter = 150, tune = c(0.5, 2.0)){
   y <- y*exp(-time)
   x.aug <- cbind(1, x)
@@ -100,28 +80,26 @@ onearmglmcount.dr <- function(y, x, time, trt, ps, f.predictor){
   return(fit2$coef)
 }
 
-##### ITR function with 4 methods Lu
-
-#' ITR based on Poisson regression
-#' 
-#' @param traindata1 - training data but with only arm = 1; data.frame
-#' @param traindata0 - training data but with only arm = 0; data.frame
-#' @param testdata - test data with both arms (assume two arms) and same variables as traindata; data.frame
-#' @param categoricalvars - Categorical X variables to be included in the zero-inflated regression; vector of strings
-#' @param continuousvars - Continuous X variables to be included in the zero-inflated regression; vector of string
-#' @param sim.big a large test set object (independent from data) to get true value function; list object with elements `data` and `betas` 
-#' 
-#' @return if testdata != NULL: a list with:
-#'              - dhat: the estimated ITR of every observation in `testdata` (1 means arm 1 and 0 means arm 0)
-#'              - vhat.dhat: estimated value of the estimated ITR of every observation in `testdata`
-#'     OR if testdata == NULL: a list with:
-#'              - fit: dataframe with coefficient of Poisson fit trt=1 (coef1) and trt=0 (coef0), and corresponding SE (SE1 and SE0)
-#'              - score: dataframe with ID, score (score_pois), optimal ITR (itr_pois)
-#' @return In addition, if sim.big != NULL: the list also contains:
-#'              - dhat.big: the estimated ITR of every observation in `sim.big` (1 means arm 1 and 0 means arm 0)
-#'              - v.dhat: true value of the estimated ITR of every observation in `sim.big`  
-
 itrLuPoisson <- function(traindata1, traindata0, testdata, categoricalvars, continuousvars, sim.big = NULL){
+  
+  #' ITR based on Poisson regression
+  #' 
+  #' @param traindata1 - training data but with only arm = 1; data.frame
+  #' @param traindata0 - training data but with only arm = 0; data.frame
+  #' @param testdata - test data with both arms (assume two arms) and same variables as traindata; data.frame
+  #' @param categoricalvars - Categorical X variables to be included in the zero-inflated regression; vector of strings
+  #' @param continuousvars - Continuous X variables to be included in the zero-inflated regression; vector of string
+  #' @param sim.big a large test set object (independent from data) to get true value function; list object with elements `data` and `betas` 
+  #' 
+  #' @return if testdata != NULL: a list with:
+  #'              - dhat: the estimated ITR of every observation in `testdata` (1 means arm 1 and 0 means arm 0)
+  #'              - vhat.dhat: estimated value of the estimated ITR of every observation in `testdata`
+  #'     OR if testdata == NULL: a list with:
+  #'              - fit: dataframe with coefficient of Poisson fit trt=1 (coef1) and trt=0 (coef0), and corresponding SE (SE1 and SE0)
+  #'              - score: dataframe with ID, score (score_pois), optimal ITR (itr_pois)
+  #' @return In addition, if sim.big != NULL: the list also contains:
+  #'              - dhat.big: the estimated ITR of every observation in `sim.big` (1 means arm 1 and 0 means arm 0)
+  #'              - v.dhat: true value of the estimated ITR of every observation in `sim.big`  
   
   output <- list()
   
@@ -176,29 +154,28 @@ itrLuPoisson <- function(traindata1, traindata0, testdata, categoricalvars, cont
   return(output)
 }
 
-  
-#' ITR based on boosting
-#' 
-#' @param traindata1 - training data but with only arm = 1; data.frame
-#' @param traindata0 - training data but with only arm = 0; data.frame
-#' @param testdata - test data with both arms (assume two arms) and same variables as traindata; data.frame
-#' @param categoricalvars - Categorical X variables to be included in the zero-inflated regression; vector of strings
-#' @param continuousvars - Continuous X variables to be included in the zero-inflated regression; vector of strings
-#' @param tree.depth Depth of individual trees in boosting (usually 2-3); integer
-#' @param n.trees Maximum number of trees in boosting (usually 100-1000); integer
-#' @param plot.gbmperf Plot the performance measures in the GBM method; boolean
-#' @param sim.big a large test set object (independent from data) to get true value function; list object with elements `data` and `betas` 
-#'
-#' @return if testdata != NULL: a list with:
-#'              - dhat: the estimated ITR of every observation in `testdata` (1 means arm 1 and 0 means arm 0)
-#'              - vhat.dhat: estimated value of the estimated ITR of every observation in `testdata`
-#'     OR if testdata == NULL: a list with:
-#'              score: dataframe with ID, score (score_boost), optimal ITR (itr_boost)
-#' @return In addition, if sim.big != NULL: the list also contains:
-#'              - dhat.big: the estimated ITR of every observation in `sim.big` (1 means arm 1 and 0 means arm 0)
-#'              - v.dhat: true value of the estimated ITR of every observation in `sim.big` 
-
 itrLuBoosting <- function(traindata0, traindata1, testdata, categoricalvars, continuousvars, tree.depth = 2, n.trees = 200, plot.gbmperf = F, sim.big = NULL){
+  
+  #' ITR based on boosting
+  #' 
+  #' @param traindata1 - training data but with only arm = 1; data.frame
+  #' @param traindata0 - training data but with only arm = 0; data.frame
+  #' @param testdata - test data with both arms (assume two arms) and same variables as traindata; data.frame
+  #' @param categoricalvars - Categorical X variables to be included in the zero-inflated regression; vector of strings
+  #' @param continuousvars - Continuous X variables to be included in the zero-inflated regression; vector of strings
+  #' @param tree.depth Depth of individual trees in boosting (usually 2-3); integer
+  #' @param n.trees Maximum number of trees in boosting (usually 100-1000); integer
+  #' @param plot.gbmperf Plot the performance measures in the GBM method; boolean
+  #' @param sim.big a large test set object (independent from data) to get true value function; list object with elements `data` and `betas` 
+  #'
+  #' @return if testdata != NULL: a list with:
+  #'              - dhat: the estimated ITR of every observation in `testdata` (1 means arm 1 and 0 means arm 0)
+  #'              - vhat.dhat: estimated value of the estimated ITR of every observation in `testdata`
+  #'     OR if testdata == NULL: a list with:
+  #'              score: dataframe with ID, score (score_boost), optimal ITR (itr_boost)
+  #' @return In addition, if sim.big != NULL: the list also contains:
+  #'              - dhat.big: the estimated ITR of every observation in `sim.big` (1 means arm 1 and 0 means arm 0)
+  #'              - v.dhat: true value of the estimated ITR of every observation in `sim.big` 
   
   output <- list()
   
@@ -273,34 +250,34 @@ itrLuBoosting <- function(traindata0, traindata1, testdata, categoricalvars, con
   
   return(output)
 }
-
-
-#' ITR based on two regressions and contrast regression
-#' 
-#' @param traindata - training data with both arms; data.frame
-#' @param testdata - test data with both arms (assume two arms) and same variables as traindata; data.frame
-#' @param categoricalvars - Categorical X variables to be included in the zero-inflated regression; vector of strings
-#' @param continuousvars - Continuous X variables to be included in the zero-inflated regression; vector of strings
-#' @param RCT Whether treatment is randomized. If RCT=T, the PS is the proportion of patients treated with DMF
-#' @param tree.depth Depth of individual trees in boosting (usually 2-3); integer
-#' @param n.trees Maximum number of trees in boosting (usually 100-1000); integer
-#' @param Kfold Number of folds (parts) used in cross-fitting to partition the data; integer
-#' @param B Number of time cross-fitting is repeated to reduce Monte Carlo variability; integer
-#' @param seed.cf Randomization seed for cross-fitting partitions; integer
-#' @param plot.gbmperf Plot the performance measures in the GBM method; boolean
-#' @param sim.big a large test set object (independent from data) to get true value function; list object with elements `data` and `betas` 
-#' 
-#' @return if testdata != NULL: a list with two elements, tworeg and contrast reg, each with:
-#'              - dhat: the estimated ITR of every observation in `testdata` (1 means arm 1 and 0 means arm 0)
-#'              - vhat.dhat: estimated value of the estimated ITR of every observation in `testdata`
-#'     OR if testdata == NULL: a list with two elements, tworeg and contrast reg, each with:
-#'               - fit: coefficient of log(CATE) (coef) and SE (for contrast reg only)
-#'               - score: dataframe with ID, score (score_tworeg or score_contrastreg), optimal ITR (itr_tworeg or itr_contrastreg)
-#' @return In addition, if sim.big != NULL: a list with two elements, tworeg and contrast reg, each with:
-#'              - dhat.big: the estimated ITR of every observation in `sim.big` (1 means arm 1 and 0 means arm 0)
-#'              - v.dhat: true value of the estimated ITR of every observation in `sim.big`  
-                       
+                     
 itrLuDR <- function(traindata, testdata, categoricalvars, continuousvars, RCT = F, tree.depth = 2, n.trees = 200, Kfold = 6, B = 3, seed.cf = 3, plot.gbmperf = F, sim.big = NULL){
+  
+  #' ITR based on two regressions and contrast regression
+  #' 
+  #' @param traindata - training data with both arms; data.frame
+  #' @param testdata - test data with both arms (assume two arms) and same variables as traindata; data.frame
+  #' @param categoricalvars - Categorical X variables to be included in the zero-inflated regression; vector of strings
+  #' @param continuousvars - Continuous X variables to be included in the zero-inflated regression; vector of strings
+  #' @param RCT Whether treatment is randomized. If RCT=T, the PS is the proportion of patients treated with DMF
+  #' @param tree.depth Depth of individual trees in boosting (usually 2-3); integer
+  #' @param n.trees Maximum number of trees in boosting (usually 100-1000); integer
+  #' @param Kfold Number of folds (parts) used in cross-fitting to partition the data; integer
+  #' @param B Number of time cross-fitting is repeated to reduce Monte Carlo variability; integer
+  #' @param seed.cf Randomization seed for cross-fitting partitions; integer
+  #' @param plot.gbmperf Plot the performance measures in the GBM method; boolean
+  #' @param sim.big a large test set object (independent from data) to get true value function; list object with elements `data` and `betas` 
+  #' 
+  #' @return if testdata != NULL: a list with two elements, tworeg and contrast reg, each with:
+  #'              - dhat: the estimated ITR of every observation in `testdata` (1 means arm 1 and 0 means arm 0)
+  #'              - vhat.dhat: estimated value of the estimated ITR of every observation in `testdata`
+  #'     OR if testdata == NULL: a list with two elements, tworeg and contrast reg, each with:
+  #'               - fit: coefficient of log(CATE) (coef) and SE (for contrast reg only)
+  #'               - score: dataframe with ID, score (score_tworeg or score_contrastreg), optimal ITR (itr_tworeg or itr_contrastreg)
+  #' @return In addition, if sim.big != NULL: a list with two elements, tworeg and contrast reg, each with:
+  #'              - dhat.big: the estimated ITR of every observation in `sim.big` (1 means arm 1 and 0 means arm 0)
+  #'              - v.dhat: true value of the estimated ITR of every observation in `sim.big`  
+  
   
   output <- list()
   
@@ -394,13 +371,6 @@ itrLuDR <- function(traindata, testdata, categoricalvars, continuousvars, RCT = 
     delta4.mat[bb, ] <- fit_two$coef
     converge[bb] <- fit_two$converge
     if(converge[bb] == T) sigma4.mat <- sigma4.mat + fit_two$vcov
-    
-    # Print intermediate output
-#    cat(paste0("\n\n", bb, " out of ", B, " cross-fitting iterations\n"))
-#    cat(paste0("Two regressions estimator (iteration ", bb, "):\n"))
-#    print(delta3.mat[bb,])
-#    cat(paste0("Contrast regression estimator (iteration ", bb, "):\n"))
-#    print(delta4.mat[bb,])
   }
   
   # Final two regression estimator

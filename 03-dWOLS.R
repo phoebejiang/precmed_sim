@@ -1,42 +1,17 @@
 # ------------------------------------------------------------------
-# Product: Tecfidera [A1] vs. Teriflunomid [A0]
-# Protocol: MarketScan
 # Project: Precision Medicine MS
 # 
-# Program name: 03_dWOLS.R
-# Date: 05OCT2020
+# Program name: 03-dWOLS.R
 # 
 # Purpose: Estimate treatment rule with dWOLS
-#    
-# 
-# Platform: Windows
-# R Version: 4.0.1
-# 
-#   Modifications:
-# 
-#   Date			By			Description
-# --------		--------	-----------------------------
-#   05OCT2020 gs      Start the script
-#   06OCT2020 pj      Read in preprocessed MarketScan data from a function and clean up
-#   28OCT2020 gs      Improve dWOLS application
-#   09NOV2020 gs      dWOLS with IPTW
-#   12NOV2020 gs      Wrap dWOLS into a function for CV
-#   03DEC2020 gs      Update function when test data == NULL
-#   11MAR2021 gs      Minor change to accommodate factor trt
-#   15MAR2021 pj      Move factor->numeric trt change to eachCV.R
-#   26APR2021 pj      Change outputs to single Vhat(dhat) to four items: d.hat test fold, Vhat(dhat), d.hat large test, V(dhat)
-#   14MAY2021 pj      Set itr.big as numeric instead of factor bc model.matrix can't handle factors with < 2 levels
 # ------------------------------------------------------------------
 
 library(DTRreg)
 
-#source("./utility.R") 
-
-# ------------------------------------------------------------------ #
-####                    dWOLS function for CV                     ####
-# ------------------------------------------------------------------ #
+source("./utility.R") 
 
 itrDWOLS <- function(traindata, testdata, outcome, Xoutcome, Xinteraction, dWOLSweight = "IPTW", sim.big = NULL){
+  
   #' ITR based on doubly robust dWOLS
   #' 
   #' @param traindata - training data with both arms; data.frame
@@ -106,5 +81,4 @@ itrDWOLS <- function(traindata, testdata, outcome, Xoutcome, Xinteraction, dWOLS
   
   return(output)
 }
-
 

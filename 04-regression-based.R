@@ -1,47 +1,20 @@
 # ------------------------------------------------------------------
-# Product: Tecfidera [A1] vs. Teriflunomid [A0]
-# Protocol: MarketScan
 # Project: Precision Medicine MS
 # 
-# Program name: 04_regression-based.R
-# Date: 06NOV2020
+# Program name: 04-regression-based.R
 # 
 # Purpose: Estimate treatment rule with regression-based models 
 #   (Linear, Poisson, Negative Binomial, Zero-Inflated Negative Binomial)
-#    
-# 
-# Platform: Windows
-# R Version: 4.0.3
-# 
-#   Modifications:
-# 
-#   Date			By			Description
-# --------		--------	-----------------------------
-#   06NOV2020 pj      Start the script based on 04-diagnostics&regression.R: write Poisson into a function and apply CV
-#   11NOV2020 pj      Write the Cv part into a main.R function; only keeping the functions
-#   16NOV2020 pj      Add lasso penalization to linear and poisson with glmnet
-#   24NOV2020 pj      Update data with formatted inputs
-#   07DEC2020 gs      Update functions when test data == NULL 
-#   29JAN2021 gs      Add LASSO option to itrLinear and itrPoisson
-#   26APR2021 pj      Change outputs to single Vhat(dhat) to four items: d.hat test fold, Vhat(dhat), d.hat large test, V(dhat)
 # ------------------------------------------------------------------
 
-#remove(list = ls())
-#library(tidyverse)
-#library(magrittr)
-#library(listdtr)
-#library(fastDummies)
-#library(MASS)
-#library(pscl)
-#library(caret)
-#library(glmnet)
-#library(mpath)
+library(tidyverse)
+library(glmnet)
+library(magrittr)
+library(MASS)
+library(pscl)
+library(mpath)
 
-#source("./01-preprocessing.R")
-#source("./02-propensityscore.R")
-#source("./utility.R")
-
-# TODO: add all variables with lasso penalization 
+source("./utility.R")
 
 itrLinear <- function(traindata1, traindata0, testdata, outcome, categoricalvars, continuousvars, testps, LASSO = F, trainweight1 = NULL, trainweight0 = NULL, sim.big = NULL){
   #' Regression-based two-sample linear regression ITR
@@ -329,16 +302,7 @@ itrNegBin <- function(traindata1, traindata0, testdata, outcome, offset, categor
     # ## Find the best lambda with 10-fold CV
     cvfit1 <- cv.glmregNB(formula = formula, data = traindata1, weights = trainweight1, alpha = 1)
     cvfit0 <- cv.glmregNB(formula = formula, data = traindata0, weights = trainweight0, alpha = 1)
-    # 
-    # TODO: 
-    # Error in { : 
-    # task 70 failed - "NA/NaN/Inf in foreign function call (arg 1)"
-    # In addition: Warning message:
-    #   In model.matrix.default(Terms, mf, contrasts) :
-    #   non-list contrasts argument ignored
-    #
-    # GS: got error message only for cvfit1, worked with warnings when formula specified as a function of continuousvars only (maybe problem is with low-prevalent binary variables?)
-    
+
     # ## Make predictions on the test data
     # pred1 <- predict(object = mod1, newx = testdata, which = cvfit1$lambda.which) # use the lambda of the best model
     # pred0 <- predict(object = mod0, newx = testdata, which = cvfit0$lambda.which)
@@ -347,7 +311,7 @@ itrNegBin <- function(traindata1, traindata0, testdata, outcome, offset, categor
       traindata <- rbind(traindata0, traindata1)
       pred1 <- predict(object = mod1, newx = traindata, newoffset = traindata[['offset']], which = which.min(BIC(mod1))) # use the lambda of the best model
       pred0 <- predict(object = mod0, newx = traindata, newoffset = traindata[['offset']], which = which.min(BIC(mod0)))
-      # TODO: return coefficients from best lambda
+     
       coef1 <- mod1$coefficients # save coefficients with lambda=100
       coef0 <- mod0$coefficients
     } else {
@@ -447,16 +411,6 @@ itrZeroInfl <- function(traindata1, traindata0, testdata, outcome, offset, categ
     mod1 <- zipath(formula = formula, data = traindata1, family = "negbin",  weights = trainweight1, nlambda = 100)
     mod0 <- zipath(formula = formula, data = traindata0, family = "negbin",  weights = trainweight0, nlambda = 100)
   
-    # ## Find the best lambda with 10-fold CV
-    # cvfit1 <- cv.zipath(formula = formula, data = traindata1, family = "negbin", weights = trainweight1, nlambda = 10)
-    # cvfit0 <- cv.zipath(formula = formula, data = traindata0, family = "negbin", weights = trainweight0, nlambda = 10)
-    # 
-    # TODO: Error in cv.zipath(formula = formula, data = traindata0, family = "negbin",  : 
-    #  argument "X" is missing, with no default
-    # ## Make predictions on the test data
-    # pred1 <- predict(object = mod1, newdata = testdata, which = cvfit1$lambda.which) # use the lambda of the best model
-    # pred0 <- predict(object = mod0, newdata = testdata, which = cvfit0$lambda.which)
-    
     if(is.null(testdata)){
       traindata <- rbind(traindata0, traindata1)
       pred1 <- predict(object = mod1, newdata = traindata, which = which.min(BIC(mod1))) # use the lambda of the best model
@@ -472,7 +426,6 @@ itrZeroInfl <- function(traindata1, traindata0, testdata, outcome, offset, categ
   if(is.null(testdata)){
     # Output score such that score > 0 means treatment 0 is preferred, < 0 means treatment 1 is preferred
     score <- as.numeric(pred1 - pred0)
-    # TODO (maybe?): return coefficients needed to estimate ITR
     output <- list(score = data.frame(ID = ID, score_zeroinf = score, itr_zeroinf = itr))
   } else{
     output$dhat <- itr

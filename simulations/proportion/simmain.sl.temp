@@ -1,0 +1,21 @@
+#!/bin/bash -l
+ 
+#SBATCH --job-name=batchmethodsized
+#SBATCH --nodes=1
+#SBATCH --partition=cpu
+#SBATCH --time=11-00:00:00
+#SBATCH --mem-per-cpu=50G
+#SBATCH --cpus-per-task=1
+#SBATCH -o ./simulations/proportion/code/slurmoutputs/slurm-simmain_nsized_10folds/slurm-simmain_nsized_10folds_method_yvar_batch_beta_perc.out
+ 
+# Execute the job
+echo $1 $2 $3 $4 $5 $6
+time Rscript simmain.R $1 $2 $3 $4 $5 $6
+  # $1 = method
+  # $2 = yvar
+  # $3 = batch index
+  # $4 = sample size of subset data
+  # $5 = beta (level of heterogeneity)
+  # $6 = perc (responder subgroup percentiles)
+
+exit 0

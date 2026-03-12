@@ -1,44 +1,11 @@
 # ------------------------------------------------------------------
-# Product: Tecfidera [A1] vs. Teriflunomid [A0]
-# Protocol: MarketScan
 # Project: Precision Medicine MS
 # 
 # Program name: eachCV.R
-# Developer/Programmer: pj
-# Date: 12NOV2020
 # 
-# Purpose: Performs one CV iteration for different methods. Called in main.R.
-#    
-# 
-# Platform: Windows
-# R Version: 4.0.1
-# 
-#   Modifications:
-# 
-#   Date			By			Description
-# --------		--------	-----------------------------
-#   12NOV2020 pj      Start the main structure
-#   16NOV2020 gs      Add dWOLS, Lu's 4 approaches
-#   23NOV2020 pj      Adapt code to HPC as a function
-#   24NOV2020 gs      Format input data in the beginning instead of in each CV
-#   01DEC2020 pj      Added three additional methods: allA0, allA1, listDTR3
-#                     Change from outputting value to outputting the denom and num separately
-#   02DEC2020 pj      Add tryCatch to twoReg 
-#   29JAN2021 gs      Add linear and Poisson LASSO
-#   11MAR2021 pj      Calculate PS/IPTW after splitting into training/test set
-#   15MAR2021 pj      Convert factor trt to numeric for all methods
-#                     Correct PS for test data (PS trained from training not testing)
-#   20MAR2021 pj      Add more sample sizes in the beginning to see the shape
-#   26APR2021 pj      Add code to get V(d.hat)
-#   10MAY2021 pj      Wrap listDTR2 with tryCatch and modify output if error
-#   22JUN2021 pj      Allow both "allA1" and "allDMF", "allA0" and "allTERI"
-#   14MAR2022 pj      Add "allGA" to methods for CONFIRM data
+# Purpose: Performs one CV iteration for different methods. Called in simmain.R.
 # ------------------------------------------------------------------
 
-
-#######################################################################
-############################# Function for One CV Iteration ############################
-#######################################################################
 
 eachCV <- function(data, method, outcome, folds, n.fold = 10, 
                    categoricalvars = c("female_1", "cvd_1", "diabetes_1", "prevDMTefficacy_Medium.efficacy", "prevDMTefficacy_High.efficacy", "prevDMTefficacy_None", "insuranceplan_High.Deductible", "insuranceplan_Capitated", "insuranceplan_other.unknown", "premedicationcosts_cat_.7.829.30.274.", "premedicationcosts_cat_.30.274.68.053.", "premedicationcosts_cat_.68.053"), 
@@ -75,7 +42,7 @@ eachCV <- function(data, method, outcome, folds, n.fold = 10,
   # Cross-validation starts  
   for (fold.i in 1:n.fold){
     
-    # cat("\n CV fold =", fold.i, "out of", n.fold)
+    cat("\n CV fold =", fold.i, "out of", n.fold)
     traindata <- data[-folds[[fold.i]],]
     testdata <- data[folds[[fold.i]],]
 
@@ -88,12 +55,9 @@ eachCV <- function(data, method, outcome, folds, n.fold = 10,
       # Retrieve categorical variables (dummies) in each train/set and create formula for PS model
       # (in case some train/test set does not have all categories)
       vartr <- colnames(traindata)[str_detect(colnames(traindata), "region|cci|prevDMTefficacy|insuranceplan|premedicationcosts")]
-      # varte <- colnames(testdata)[str_detect(colnames(testdata), "region|cci|prevDMTefficacy|insuranceplan|premedicationcosts")]
       fpstr <- as.formula(paste("trt ~ ageatindex_centered + female_1 + premedicalcost + prerelapse_num + severityScore + hospitalization_1 +", 
                                 paste0(vartr, collapse = "+")))
-      # fpste <- as.formula(paste("trt ~ ageatindex_centered + female_1 + premedicalcost + prerelapse_num + severityScore + hospitalization_1 +", 
-      #                           paste0(varte, collapse = "+")))           
-      traindata <- IPTWfun(data = traindata, PSmodel = fpstr)
+       traindata <- IPTWfun(data = traindata, PSmodel = fpstr)
       testdata <- IPTWfun(data = traindata, PSmodel = fpstr, newdata = testdata)
     } else {
       trainps <- mean(traindata$trt)
@@ -101,8 +65,7 @@ eachCV <- function(data, method, outcome, folds, n.fold = 10,
       testdata <- testdata %>% mutate(ps = trainps, iptw = ifelse(trt == 1, 1/ps, 1/(1 - ps)))
     }
  
-    # TODO: think of a better way to call different methods than long if-elseif statements
-    if (method %in% c("allA1")){
+    if (method %in% c("allA1", "allDMF")){
       
       eachcv[[paste0("fold", fold.i)]]$dhat <- rep(1, nrow(testdata))
       eachcv[[paste0("fold", fold.i)]]$vhat.dhat <- getValue(y = testdata[["postrelapse_num"]], 
@@ -115,7 +78,7 @@ eachCV <- function(data, method, outcome, folds, n.fold = 10,
             eachcv[[paste0("fold", fold.i)]]$v.dhat <- getTrueValue(ds = sim.big$data, d.hat = rep(1, nrow(sim.big$data)), betas = sim.big$betas)
       } 
       
-    } else if (method %in% c("allA0")){
+    } else if (method %in% c("allA0", "allTERI", "allGA")){
       
       eachcv[[paste0("fold", fold.i)]]$dhat <- rep(0, nrow(testdata))
       eachcv[[paste0("fold", fold.i)]]$vhat.dhat <- getValue(y = testdata[["postrelapse_num"]], 
@@ -145,6 +108,78 @@ eachCV <- function(data, method, outcome, folds, n.fold = 10,
                                                     trainweight0 = traindata0$FUweight,
                                                     sim.big = sim.big)
       
+    } else if (method == "weightedLinear"){
+      
+      traindata1 <- traindata %>% filter(trt == 1) # A1
+      traindata0 <- traindata %>% filter(trt == 0) # A0
+      
+      # Weighted linear regression
+      eachcv[[paste0("fold", fold.i)]] <- itrLinear(traindata1 = traindata1, 
+                                                    traindata0 = traindata0, 
+                                                    testdata = testdata, 
+                                                    outcome = outcome,
+                                                    categoricalvars = categoricalvars,
+                                                    continuousvars = continuousvars,
+                                                    testps = testdata$ps,
+                                                    trainweight1 = traindata1$iptw * traindata1$FUweight,
+                                                    trainweight0 = traindata0$iptw * traindata0$FUweight, 
+                                                    sim.big = sim.big)
+      
+    } else if (method == "linearLASSO"){
+      
+      traindata1 <- traindata %>% filter(trt == 1) # A1
+      traindata0 <- traindata %>% filter(trt == 0) # A0
+      
+      # Weighted linear regression with LASSO
+      eachcv[[paste0("fold", fold.i)]] <- itrLinear(traindata1 = traindata1, 
+                                                    traindata0 = traindata0, 
+                                                    testdata = testdata, 
+                                                    outcome = outcome,
+                                                    categoricalvars = categoricalvars,
+                                                    continuousvars = continuousvars,
+                                                    testps = testdata$ps,
+                                                    LASSO = T,
+                                                    trainweight1 = traindata1$iptw * traindata1$FUweight,
+                                                    trainweight0 = traindata0$iptw * traindata0$FUweight, 
+                                                    sim.big = sim.big)
+      
+    } else if (method == "weightedPoisson"){
+      
+      traindata1 <- traindata %>% filter(trt == 1) # A1
+      traindata0 <- traindata %>% filter(trt == 0) # A0
+      
+      # Weighted Poisson regression
+      eachcv[[paste0("fold", fold.i)]] <- itrPoisson(traindata1 = traindata1, 
+                                                     traindata0 = traindata0, 
+                                                     testdata = testdata, 
+                                                     outcome = outcome, 
+                                                     offset = "offset", 
+                                                     categoricalvars = categoricalvars,
+                                                     continuousvars = continuousvars,
+                                                     testps = testdata$ps,
+                                                     trainweight1 = traindata1$iptw,
+                                                     trainweight0 = traindata0$iptw, 
+                                                     sim.big = sim.big)
+      
+    } else if (method == "poissonLASSO"){
+      
+      traindata1 <- traindata %>% filter(trt == 1) # A1
+      traindata0 <- traindata %>% filter(trt == 0) # A0
+      
+      # Weighted Poisson regression with LASSO
+      eachcv[[paste0("fold", fold.i)]] <- itrPoisson(traindata1 = traindata1, 
+                                                     traindata0 = traindata0, 
+                                                     testdata = testdata, 
+                                                     outcome = outcome, 
+                                                     offset = "offset", 
+                                                     categoricalvars = categoricalvars,
+                                                     continuousvars = continuousvars,
+                                                     testps = testdata$ps,
+                                                     LASSO = T,
+                                                     trainweight1 = traindata1$iptw,
+                                                     trainweight0 = traindata0$iptw, 
+                                                     sim.big = sim.big)
+      
     } else if (method == "negBin"){
       
       traindata1 <- traindata %>% filter(trt == 1) # A1
@@ -169,6 +204,24 @@ eachCV <- function(data, method, outcome, folds, n.fold = 10,
         list(dhat = NA, vhat.dhat = list(U = NA, W = NA), dhat.big = NA, v.dhat = NA)
       }
      )
+      
+    } else if (method == "weightedNegBin"){
+      
+      traindata1 <- traindata %>% filter(trt == 1) # A1
+      traindata0 <- traindata %>% filter(trt == 0) # A0
+      
+      # Weighted negative binomial regression
+      eachcv[[paste0("fold", fold.i)]] <- itrNegBin(traindata1 = traindata1, 
+                                                    traindata0 = traindata0, 
+                                                    testdata = testdata, 
+                                                    outcome = outcome, 
+                                                    offset = "offset", 
+                                                    categoricalvars = categoricalvars,
+                                                    continuousvars = continuousvars,
+                                                    testps = testdata$ps,
+                                                    trainweight1 = traindata1$iptw,
+                                                    trainweight0 = traindata0$iptw, 
+                                                    sim.big = sim.big)
       
     } else if (method == "dWOLS"){
       
@@ -255,8 +308,6 @@ eachCV <- function(data, method, outcome, folds, n.fold = 10,
      )
 
     } else if (method == "twoReg"){ 
-      
-      # TODO: get two regressions and contrast regression values as one method (runs the same code twice otherwise)
       
       eachcv[[paste0("fold", fold.i)]] <- tryCatch({itrLuDR(traindata = traindata,
                                                             testdata = testdata,

@@ -1,0 +1,14 @@
+#!/bin/bash -l
+ 
+#SBATCH --job-name=summsize
+#SBATCH --nodes=1
+#SBATCH --time=1:00:00
+#SBATCH --partition=cpu
+#SBATCH --cpus-per-task=1
+#SBATCH -o ./simulations/proportion/code/slurmoutputs/slurm-summary_proportion_nsize.out
+
+# Execute the job
+echo $1
+time Rscript simsummary_proportion.R $1
+
+exit 0
