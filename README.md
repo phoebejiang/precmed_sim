@@ -1,9 +1,3 @@
----
-editor_options: 
-  markdown: 
-    wrap: 72
----
-
 # Impact of treatment effect heterogeneity on the estimation of individualized treatment rules for count outcomes
 
 This README file contains the instructions required to reproduce the tables 
@@ -13,12 +7,54 @@ The R scripts implement the simulation studies, case study analyses, and
 supporting computations described in the paper, enabling full reproducibility 
 of the reported results.
 
-## Contact Me
+## 1. Quick Start
 
-If you have any questions, please feel free to reach out to the corresponding author Xiaotong Jiang
-([xiaotong.phoebe.jiang\@gmail.com](mailto:xiaotong.phoebe.jiang@gmail.com){.email}).
+To reproduce the figures and tables quickly, you can choose one of the following two options:
 
-## Version Information
+### Option 1. Using precomputed intermediate results
+
+1. Use the precomputed intermediate results provided in the folders to avoid 
+   running the time consuming simulations.
+
+* `./intermediate_results/simulations_samplesize`
+* `./intermediate_results/simulations_proportions`
+* `./intermediate_results/case_study`
+
+2. Run:
+
+```
+Rscript simulation_analysis.R
+Rscript case_study_analysis.R
+```
+
+### Option 2. One consolidated, minimal example 
+
+Alternatively, you can try this one minimal example which consolidates the 
+functionality of the following scripts into a single, self-contained R script:
+
+* `simmain.R`
+
+* `simsummary.R`
+
+* `simsummary_sample_size.R`
+
+* `simulation_analysis.R`
+
+The script `one_minimal_example.R`:
+
+* Runs all five batches, generating all 25 cross-validation iterations for the same configuration listed above (based on `simmain.R`)
+
+* Summarizes the simulation results (based on `simsummary.R`)
+
+    * Produces a visualization of the final value function (based on `simsummary_sample_size.R`)
+
+Executing this script reproduces a single point in Figure 3 of the manuscript, 
+corresponding to a value function (y) of approximately 0.26. This point represents 
+one simulation setting under the specified configuration (i.e., No HTE (light green shade), 
+500 sample size (x), and Poisson model (second panel)).
+
+
+## 2. Version Information
 
 This project was developed using the following software and packages:
 
@@ -40,7 +76,7 @@ other attached packages:
 [31] tidyr_1.3.1        tibble_3.2.1       ggplot2_4.0.1      tidyverse_2.0.0    listdtr_1.1
 ```
 
-## Reproducing Figures and Tables
+## 3. Specific Workflow
 
 To reproduce the figures and tables in the manuscript and its
 supplements, follow the steps below:
@@ -74,7 +110,7 @@ Note: To save time, pre-computed intermediate results are already
 provided in the `./intermediate_results/simulations_samplesize` folder
 and the `./intermediate_results/simulations_proportions` folder. You can
 use files in these two folders to skip the time-consuming simulations in
-Step 1 and proceed directly to running `simulation_analysis.R`.
+Step 1 and proceed directly to running `simulation_analysis.R`. See Quick Start.
 
 ### Step 2: Generate simulation results
 
@@ -103,21 +139,9 @@ provided in the `./intermediate_results/case_study` folder, which are
 ./`case_study_stratified10foldCV/main_CV_results_rawhats.dhat_stratified10foldCVs.csv`
 (intermediate precision medicine results of the preprocessed data). You
 can use files in this folder to skip the calculations and proceed
-directly to running `case_study_analysis.R`.
+directly to running `case_study_analysis.R`. See Quick Start.
 
-## Manual Alterations
-
-No manual alterations to the code are required. All scripts are
-self-contained and can be executed as-is. If any manual edits are
-necessary, they will be explicitly documented here with file names, line
-numbers, and the exact content of the edits.
-
-Note that the scripts in the `./simulations/` folder should be run on a
-HPC cluster, as computations for large sample sizes and certain
-time-intensive methods, such as listDTR, two regressions, and contrast
-regression, which can be very time-consuming.
-
-## Reproducible Research
+## 4. Reproducible Research (local simulation instructions)
 
 The simulation scripts in `./simulations/samplesize` and
 `./simulations/proportion` are designed to be run on a HPC cluster.
@@ -126,7 +150,7 @@ reproducibility, we provide an example of a minimal simulation
 configuration that can be executed locally within a reasonable amount of
 time.
 
-### How to run `simmain.R` locally
+### A. How to run `simmain.R` locally
 
 The example below demonstrates how to run `simmain.R` from the command
 line with a specific set of arguments:
@@ -198,7 +222,7 @@ Here are other values of the arguments that you can try:
 More detailed information about the arguments for `simmain.R` can be
 found in `simmain.sh`.
 
-### How to run `simsummary.R` locally
+### B. How to run `simsummary.R` locally
 
 After `simmain.R` is run 5 times for all 5 batches (e.g., 1 to 5 for n =
 500) and all PM models (e.g., Poisson), the example below demonstrates
@@ -221,7 +245,7 @@ need to keep the same arguments of sample size, `beta`, and `perc`.
 More detailed information about the arguments for `simsummary.R` can be
 found in `simsummary.sh`.
 
-### How to run `simsummary_samplesize.R` and `simsummary_proportion` locally
+### C. How to run `simsummary_samplesize.R` and `simsummary_proportion` locally
 
 The example below demonstrates how to run `simsummary_samplesize.R` or
 `simsummary_proportion.R`, which summarizes `simsummary.R` results
@@ -261,25 +285,10 @@ More detailed information about the arguments for
 `simsummary_samplesize.R` can be found in `simsummary_samplesize.sh` and
 `simsummary_proportion.sh` for `simsummary_proportion.R`.
 
-## File and Folder Structure
+## 5. File and Folder Structure
 
 Below is a listing of the files and folders in the project, with brief
 explanations of their content:
-
--   `01-preprocessing.R`: Preprocesses the input data.
-
--   `02-propensityscore.R`: Calculates propensity scores.
-
--   `03-dWOLS.R`: Implements the dWOLS method.
-
--   `04-regression-based.R`: Implements the regression-based methods:
-    linear, Poisson, negative binomial, and zero-inflated negative
-    binomial models.
-
--   `05-listdtr.R`: Implements the listDTR method.
-
--   `06-LuScore.R`: Implements the four methods: Poisson, boosting, two
-    regressions, and contrast regression.
 
 -   Folder `case_study`: Contains the CONFIRM case study scripts.
 
@@ -297,18 +306,6 @@ explanations of their content:
 
     -   `summary.sl`: A slurm script that runs the `summary.R` on
         cluster.
-
--   `case_study_analysis.R`: Final script that generates figure and
-    table that are related to the CONFIRM case study (Figure 6 and Table
-    1 presented in the manuscript).
-
--   `eachCV.R`: Generates cross-validation results using the precision
-    medicine methods in `03-dWOLS.R` to `06-LuScore.R`.
-    
--   `generate_pseudo_case_study_data.R`: Generate a privacy-preserving pseudo 
-     dataset that mirrors the original case study data in size, structure, 
-     and key summary characteristics, and outputs the `processed.RDS` file 
-     for downstream analyses.
 
 -   Folder `intermediate_results`: Contains intermediate results.
 
@@ -339,12 +336,6 @@ explanations of their content:
 
     -   `tables`: `SuppTable1.csv` and `Table 1.csv`.
 
--   `simulation_analysis_functions.R`: Functions used in the
-    `simulation_analysis.R`.
-
--   `simulation_analysis.R`: Final script that generates figures and
-    tables of the simulation analysis presented in the manuscript.
-
 -   Folder `simulations`: Folder containing simulation scripts.
 
     -   `samplesize`:
@@ -367,9 +358,48 @@ explanations of their content:
 
         -   See Supplementary Table 1 for more details.
 
+-   `01-preprocessing.R`: Preprocesses the input data.
+
+-   `02-propensityscore.R`: Calculates propensity scores.
+
+-   `03-dWOLS.R`: Implements the dWOLS method.
+
+-   `04-regression-based.R`: Implements the regression-based methods:
+    linear, Poisson, negative binomial, and zero-inflated negative
+    binomial models.
+
+-   `05-listdtr.R`: Implements the listDTR method.
+
+-   `06-LuScore.R`: Implements the four methods: Poisson, boosting, two
+    regressions, and contrast regression.
+
+-   `case_study_analysis.R`: Final script that generates figure and
+    table that are related to the CONFIRM case study (Figure 6 and Table
+    1 presented in the manuscript).
+
+-   `eachCV.R`: Generates cross-validation results using the precision
+    medicine methods in `03-dWOLS.R` to `06-LuScore.R`.
+    
+-   `generate_pseudo_case_study_data.R`: Generate a privacy-preserving pseudo 
+     dataset that mirrors the original case study data in size, structure, 
+     and key summary characteristics, and outputs the `processed.RDS` file 
+     for downstream analyses.
+     
+-   `one_minimal_example.R`: Runs and summarizes results of all 25 cross-validation 
+     iterations of one single configuration (Poisson model, 500 sample size, 
+    No and equal symmetric HTE) and produces a visualization of one final value 
+    function. This script is one minimal example that reproduces one dot in 
+    Figure 3 locally to demonstrate reproducibility.
+
+-   `simulation_analysis_functions.R`: Functions used in the
+    `simulation_analysis.R`.
+
+-   `simulation_analysis.R`: Final script that generates figures and
+    tables of the simulation analysis presented in the manuscript.
+
 -   `utility.R`: Utility functions used across scripts.
 
-## Data Documentation
+## 6. Data Documentation
 
 ### Input Data Sets
 
@@ -400,3 +430,118 @@ explanations of their content:
         `./case_study_stratified10foldCV` and run `case_study_analysis.R` 
         directly to reproduce case study figures and tables in the manuscripts.
 
+
+## 7. How to apply the methods to your own data?
+
+This section is for those who are interested in giving it a try to your dataset. We will demonstrate with a simple example how to fit the model, calculate the estimates, and validate via a separate dataset.
+
+Let us try a small example of 500 samples with medium-level HTE and asymmetric responder group profile (i.e., 55% high responders to A1, 30% moderatre responders to A1, 15% neutral). Here, we are using the doubly robust Contrast Regression method ((Yadlowsky et al. 2021), (Tian, Jiang, and Simoneau 2023)).
+```
+# Specify sample size, magnitude and distribution of HTE
+n <- 500
+params <- convertParameters("medium", "asymm 55-30-15", verbose = T)
+
+# Specify X and Y variables to be included in the model
+categoricalvars <- c("female", "prevDMTefficacy")
+formatted_categoricalvars <- c("female", "prevDMTefficacy_Medium.and.high.efficacy", "prevDMTefficacy_None")
+continuousvars <- c("ageatindex_centered", "prerelapse_num", "premedicalcost")
+yvar <- "postrelapse_num"
+
+# Simulate random datasets (You can use your own data here)
+traindata <- simdata(n = n, RCT = RCT, beta = params$beta, 
+                     percentiles = params$percentiles, seed = 2023)$data 
+testdata <- simdata(n = n, RCT = RCT, beta = params$beta, 
+                    percentiles = params$percentiles, seed = 2024)$data
+# bigdata <- simdata(n = 10000, RCT = RCT, beta = params$beta, percentiles = params$percentiles, seed = 999)$data
+
+# Format the training and testing data
+temp <- format.countdata(data = traindata, 
+                         yvar = yvar, 
+                         timevar = "finalpostdayscount", 
+                         trtvar = "trt", 
+                         xcontinuousvars = c(continuousvars, "FUweight"), 
+                         xcategoricalvars = categoricalvars, 
+                         RCT = T, imputation.method = NULL)
+traindata <- data.frame(y = temp$y, trt = factor(temp$trt), time = log(temp$time), temp$x)
+traindata$trt <- as.numeric(traindata$trt == 1)
+
+temp <- format.countdata(data = testdata, 
+                         yvar = yvar, 
+                         timevar = "finalpostdayscount", 
+                         trtvar = "trt", 
+                         xcontinuousvars = c(continuousvars, "FUweight"), 
+                         xcategoricalvars = categoricalvars, 
+                         RCT = T, imputation.method = NULL)
+testdata <- data.frame(y = temp$y, trt = factor(temp$trt), time = log(temp$time), temp$x)
+testdata$trt <- as.numeric(testdata$trt == 1)
+
+# Calculate PS/IPTW (assuming randomized trials)
+trainps <- mean(traindata$trt)
+traindata <- traindata %>% mutate(ps = trainps, iptw = ifelse(trt == 1, 1/ps, 1/(1 - ps)))
+testdata <- testdata %>% mutate(ps = trainps, iptw = ifelse(trt == 1, 1/ps, 1/(1 - ps)))
+
+# Implement the contrast Regression method    
+results <- itrLuDR(traindata = traindata,
+                    testdata = testdata,
+                    categoricalvars = formatted_categoricalvars,
+                    continuousvars = continuousvars,
+                    RCT = T,
+                    tree.depth = 2,
+                    n.trees = 100,
+                    Kfold = 5,
+                    B = 3,
+                    seed.cf = 3,
+                    plot.gbmperf = F,
+                    sim.big = NULL)
+```
+
+The results of each PM method are saved as a list with name `results` and it contains two kinds of outputs:
+
+* `dhat`: the estimated ITR (where 0 means recommending A0 and 1 means recommending A1) for each subject; a vector of 0/1 values with size $n$ 
+* `vhat.dhat`: numerator (`U`) and denominator (`W`) component of the value function estimate as well as intermediate components of the variance estimator (sumRj2 and `sumRj2.mean`); a list of 4 elements 
+
+Below are the results from the contrast regression method:
+```
+  0   1 
+204 296 
+
+results$valueContrastReg$vhat.dhat
+
+$U
+[1] 128.4225
+
+$W
+[1] 627.3908
+
+$sumRj2
+[1] 0.03584947
+
+$sumRj2.mean
+[1] 8962.368
+```
+The estimated value function is `results$valueContrastReg$vhat.dhat$U / results$valueContrastReg$vhat.dhat$W` = `r round(results$valueContrastReg$vhat.dhat$U / results$valueContrastReg$vhat.dhat$W, 2)`.
+
+For demonstration purpose, the model was not trained for very long. More optimal results might be generated with a longer training period, which has a trade-off between computation burden and model performance. 
+
+## 8. Manual Alterations
+
+No manual alterations to the code are required. All scripts are
+self-contained and can be executed as-is. If any manual edits are
+necessary, they will be explicitly documented here with file names, line
+numbers, and the exact content of the edits.
+
+Note that the scripts in the `./simulations/` folder should be run on a
+HPC cluster, as computations for large sample sizes and certain
+time-intensive methods, such as listDTR, two regressions, and contrast
+regression, which can be very time-consuming.
+
+## 9. References
+
+* Tian, Lu, Xiaotong Jiang, and Gabrielle Simoneau. 2023. Precmed: Precision Medicine. https://smartdata-analysis-and-statistics.github.io/precmed/.
+
+* Yadlowsky, Steve, Fabio Pellegrini, Federica Lionetto, Stefan Braune, and Lu Tian. 2021. “Estimation and Validation of Ratio-Based Conditional Average Treatment Effects Using Observational Data.” Journal of the American Statistical Association 116 (533): 335–52.
+
+## 10. Contact Me
+
+If you have any questions, please feel free to reach out to the corresponding author Xiaotong Jiang
+([xiaotong.phoebe.jiang\@gmail.com](mailto:xiaotong.phoebe.jiang@gmail.com){.email}).
