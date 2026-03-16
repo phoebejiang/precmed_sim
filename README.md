@@ -29,7 +29,7 @@ Rscript case_study_analysis.R
 
 ### Option 2. One consolidated, minimal example 
 
-Alternatively, you can try this one minimal example which consolidates the 
+Alternatively, you can try this one minimal example, `one_minimal_example.R`, which consolidates the 
 functionality of the following scripts into a single, self-contained R script:
 
 * `simmain.R`
@@ -544,4 +544,4 @@ regression, which can be very time-consuming.
 ## 10. Contact Me
 
 If you have any questions, please feel free to reach out to the corresponding author Xiaotong Jiang
-([xiaotong.phoebe.jiang\@gmail.com](mailto:xiaotong.phoebe.jiang@gmail.com){.email}).
+([xiaotong.phoebe.jiang\@gmail.com](xiaotong.phoebe.jiang@gmail.com)).
